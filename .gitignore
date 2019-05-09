@@ -5,3 +5,5 @@
 /.vs
 /CommandLineArgumentParser/obj
 /CommandLineArgumentParser/bin
+/ArgumentSplitter.Test/bin
+/ArgumentSplitter.Test/obj
