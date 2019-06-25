@@ -7,3 +7,7 @@
 /CommandLineArgumentParser/bin
 /ArgumentSplitter.Test/bin
 /ArgumentSplitter.Test/obj
+/ArgvParser.Test/obj
+/ArgvParser.Test/bin
+/packages
+/Test
