@@ -5,3 +5,7 @@
 /.vs
 /CommandLineArgumentParser/obj
 /CommandLineArgumentParser/bin
+/ArgvParser.Test/obj
+/ArgvParser.Test/bin
+/packages
+/Test
