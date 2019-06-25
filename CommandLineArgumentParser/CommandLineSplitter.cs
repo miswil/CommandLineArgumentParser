@@ -4,7 +4,7 @@ using System.Text.RegularExpressions;
 
 namespace CommandLineArgumentParser
 {
-    public static class ArgumentSplitter
+    public static class CommandLineSplitter
     {
         /// <summary>
         /// split the argument under the rule at https://docs.microsoft.com/en-us/cpp/c-language/parsing-c-command-line-arguments?view=vs-2019 or https://docs.microsoft.com/en-us/cpp/cpp/parsing-cpp-command-line-arguments?view=vs-2019
