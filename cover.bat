@@ -3,7 +3,7 @@ cd %~dp0
 
 rem boilerplate code
 set OPEN_COVER="packages\OpenCover.4.7.922\tools\OpenCover.Console.exe"
-set REPORTGEN="C:\Users\natur\.nuget\packages\reportgenerator\4.2.2\tools\net47\ReportGenerator.exe"
+set REPORTGEN="$(UserProfile)\.nuget\packages\reportgenerator\4.2.2\tools\net47\ReportGenerator.exe"
 set TARGET=dotnet.exe
 set TARGET_ARG=test
 
