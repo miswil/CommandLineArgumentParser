@@ -10,4 +10,7 @@
 /ArgvParser.Test/obj
 /ArgvParser.Test/bin
 /packages
-/Test
+/Test/CommandLineArgumentParser.Test/bin
+/Test/CommandLineArgumentParser.Test/obj
+/Test/report
+/Test/results.xml
