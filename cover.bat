@@ -20,14 +20,14 @@ del %OUTPUT%
 rd /S /Q %OUTPUT_DIR%
 
 rem coverage
-%OPEN_COVER%					^
-	-target:%TARGET%			^
-	-targetargs:%TARGET_ARG% 	^
-	-searchdirs:%SEARCH_DIR%	^
-	-output:%OUTPUT%			^
-	-filter:%FILTERS%			^
-	-skipautoprops				^
-	-oldstyle					^
+%OPEN_COVER%                    ^
+    -target:%TARGET%            ^
+    -targetargs:%TARGET_ARG%    ^
+    -searchdirs:%SEARCH_DIR%    ^
+    -output:%OUTPUT%            ^
+    -filter:%FILTERS%           ^
+    -skipautoprops              ^
+    -oldstyle                   ^
     -register:user
 
 rem report
