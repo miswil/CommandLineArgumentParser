@@ -110,7 +110,7 @@ namespace CommandLineArgumentParser
         {
             var parseInformation = new ParseInformation();
             parseInformation.Stored = stored ?? throw new ArgumentNullException(nameof(stored));
-            var argl = argv?.ToList() ?? throw new ArgumentNullException(nameof(argv));
+            var argl = argv?.Select(arg => arg ?? throw new ArgumentException("an element of aragv must not be null.")).ToList() ?? throw new ArgumentNullException(nameof(argv));
             parseInformation.OptionProperties = this.GetProperties<OptionAttribute>(stored);
             parseInformation.OperandProperties = this.GetProperties<OperandAttribute>(stored);
             parseInformation.SubCommandProperties = this.GetProperties<SubCommandAttribute>(stored);
@@ -126,11 +126,11 @@ namespace CommandLineArgumentParser
                     isRestOperand = true;
                     ++index;
                 }
-                else if (!isRestOperand && this.TryParseOption(parseInformation, argl.Skip(index), out int readCount))
+                else if (!isRestOperand && this.TryParseOption(parseInformation, argl[index], index + 1 < argl.Count ? argl[index + 1] : null, out int readCount))
                 {
                     index += readCount;
                 }
-                else if (this.SubCommandEnabled && this.TryParseSubCommand(parseInformation, argl.Skip(index)))
+                else if (this.SubCommandEnabled && this.TryParseSubCommand(parseInformation, argl[index], argl.Skip(index + 1)))
                 {
                     break;
                 }
@@ -158,31 +158,6 @@ namespace CommandLineArgumentParser
                 .GetProperties()
                 .SelectMany(p => p.GetCustomAttributes(typeof(TAttribute)).Select(a => new StoredProperty<TAttribute> { Attribute = (TAttribute)a, Property = p }))
                 .ToList();
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="argv"></param>
-        /// <returns>the number of parsed arguments</returns>
-        private bool TryParseOption(ParseInformation parseInformation, IEnumerable<string> argv, out int readCount)
-        {
-            if (!argv.Any())
-            {
-                readCount = 0;
-                return false;
-            }
-            string fst = argv.First();
-            if (fst == null)
-            {
-                throw new ArgumentException("an element of aragv must not be null.");
-            }
-            string scd = argv.Skip(1).Any()
-                ? (argv.Skip(1).First()
-                    ?? throw new ArgumentException("an element of aragv must not be null."))
-                : null;
-
-            return this.TryParseOption(parseInformation, fst, scd, out readCount);
         }
 
         private bool TryParseOption(ParseInformation parseInformation, string fst, string scd, out int readCount)
@@ -291,7 +266,7 @@ namespace CommandLineArgumentParser
                         Option = checkedOption.ArgChar.ToString(),
                     };
                 }
-                if (checkedOption.OptionProperty?.Property.PropertyType != typeof(bool))
+                if (checkedOption.OptionProperty.Property.PropertyType != typeof(bool))
                 {
                     throw new OptionConvertException($"Failed to convert the option to boolean.")
                     {
@@ -473,20 +448,12 @@ namespace CommandLineArgumentParser
             }
         }
 
-        private bool TryParseSubCommand(ParseInformation parseInformation, IEnumerable<string> argv)
+        private bool TryParseSubCommand(ParseInformation parseInformation, string subCommand, IEnumerable<string> argv)
         {
-            if (!argv.Any())
-            {
-                return false;
-            }
-            if (argv.First() == null)
-            {
-                throw new ArgumentException("an element of aragv must not be null.");
-            }
-            if (this.IsSubCommand(argv.First(), parseInformation, out var subCommandProperty))
+            if (this.IsSubCommand(subCommand, parseInformation, out var subCommandProperty))
             {
                 var subCommandArgStore = Activator.CreateInstance(subCommandProperty.Attribute.SubCommandType ?? subCommandProperty.Property.PropertyType);
-                this.Parse(subCommandArgStore, argv.Skip(1));
+                this.Parse(subCommandArgStore, argv);
                 subCommandProperty.Property.SetValue(parseInformation.Stored, subCommandArgStore);
                 return true;
             }
