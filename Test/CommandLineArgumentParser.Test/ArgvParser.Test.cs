@@ -691,6 +691,48 @@ namespace CommandLineArgumentParser.Test
             Assert.Equal(Enumerable.Two, input.EnumerableOperand);
             Assert.Equal(new[] { "-i", "10" }, input.RestAll);
         }
+
+        [Fact]
+        public void TestPOSIX()
+        {
+            Assert.False(ArgvParser.POSIX.LongNamedOptionEnabled);
+            Assert.True(ArgvParser.POSIX.NonSeparatedShortNamedOptionArgumentEnabled);
+            Assert.False(ArgvParser.POSIX.IntermixedOerandEnabled);
+            Assert.True(ArgvParser.POSIX.MultipleShortNamedOptionWithOneTokenEnabled);
+            Assert.Equal(new[] { "-" }, ArgvParser.POSIX.ShortNamedOptionPrefix);
+            Assert.Equal(new[] { "--" }, ArgvParser.POSIX.LongNamedOptionPrefix);
+            Assert.Null(ArgvParser.POSIX.OperandDelimiter);
+            Assert.Null(ArgvParser.POSIX.LongNamedOptionArgumentAssignCharacter);
+            Assert.False(ArgvParser.POSIX.SubCommandEnabled);
+        }
+
+        [Fact]
+        public void TestGNU()
+        {
+            Assert.True(ArgvParser.GNU.LongNamedOptionEnabled);
+            Assert.True(ArgvParser.GNU.NonSeparatedShortNamedOptionArgumentEnabled);
+            Assert.True(ArgvParser.GNU.IntermixedOerandEnabled);
+            Assert.True(ArgvParser.GNU.MultipleShortNamedOptionWithOneTokenEnabled);
+            Assert.Equal(new[] { "-" }, ArgvParser.GNU.ShortNamedOptionPrefix);
+            Assert.Equal(new[] { "--" }, ArgvParser.GNU.LongNamedOptionPrefix);
+            Assert.Equal(new[] { "--" }, ArgvParser.GNU.OperandDelimiter);
+            Assert.Equal(new[] { '=' }, ArgvParser.GNU.LongNamedOptionArgumentAssignCharacter);
+            Assert.False(ArgvParser.GNU.SubCommandEnabled);
+        }
+
+        [Fact]
+        public void TestWindows()
+        {
+            Assert.True(ArgvParser.Windows.LongNamedOptionEnabled);
+            Assert.False(ArgvParser.Windows.NonSeparatedShortNamedOptionArgumentEnabled);
+            Assert.True(ArgvParser.Windows.IntermixedOerandEnabled);
+            Assert.False(ArgvParser.Windows.MultipleShortNamedOptionWithOneTokenEnabled);
+            Assert.Equal(new[] { "/" }, ArgvParser.Windows.ShortNamedOptionPrefix);
+            Assert.Equal(new[] { "/" }, ArgvParser.Windows.LongNamedOptionPrefix);
+            Assert.Null(ArgvParser.Windows.OperandDelimiter);
+            Assert.Null(ArgvParser.Windows.LongNamedOptionArgumentAssignCharacter);
+            Assert.False(ArgvParser.Windows.SubCommandEnabled);
+        }
     }
 
 

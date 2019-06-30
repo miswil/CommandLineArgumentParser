@@ -111,24 +111,9 @@ namespace CommandLineArgumentParser
             var parseInformation = new ParseInformation();
             parseInformation.Stored = stored ?? throw new ArgumentNullException(nameof(stored));
             var argl = argv?.ToList() ?? throw new ArgumentNullException(nameof(argv));
-            parseInformation.OptionProperties = stored.GetType()
-                .GetProperties()
-                .Where(p =>
-                p.GetCustomAttributes()
-                .Any(a => a.GetType() == typeof(OptionAttribute)))
-                .Select(p => new OptionProperty { Attribute = (OptionAttribute)p.GetCustomAttributes().First(a => a is OptionAttribute), Property = p })
-                .ToList();
-            parseInformation.OperandProperties = stored.GetType()
-                .GetProperties()
-                .Where(p =>
-                    p.GetCustomAttributes()
-                    .Any(a => a.GetType() == typeof(OperandAttribute)))
-                .Select(p => new OperandProperty { Attribute = (OperandAttribute)p.GetCustomAttributes().First(a => a is OperandAttribute), Property = p })
-                .ToList();
-            parseInformation.SubCommandProperties = stored.GetType()
-                .GetProperties()
-                .SelectMany(p => p.GetCustomAttributes(typeof(SubCommandAttribute)).Select(a => new SubCommandProperty { Attribute = (SubCommandAttribute)a, Property = p }))
-                .ToList();
+            parseInformation.OptionProperties = this.GetProperties<OptionAttribute>(stored);
+            parseInformation.OperandProperties = this.GetProperties<OperandAttribute>(stored);
+            parseInformation.SubCommandProperties = this.GetProperties<SubCommandAttribute>(stored);
             parseInformation.RestAll = new List<string>();
             // TODO implement fluent api
 
@@ -176,6 +161,15 @@ namespace CommandLineArgumentParser
             TStore stored = new TStore();
             this.Parse(stored, argv);
             return stored;
+        }
+
+        private List<StoredProperty<TAttribute>> GetProperties<TAttribute>(object stored)
+            where TAttribute : Attribute
+        {
+            return stored.GetType()
+                .GetProperties()
+                .SelectMany(p => p.GetCustomAttributes(typeof(TAttribute)).Select(a => new StoredProperty<TAttribute> { Attribute = (TAttribute)a, Property = p }))
+                .ToList();
         }
 
         /// <summary>
@@ -325,7 +319,7 @@ namespace CommandLineArgumentParser
         /// </summary>
         /// <exception cref="InvalidArgumentFormatException">An option argument is specified not separated with option.</exception>
         /// <exception cref="OptionConvertException">An option argument cannot convert to appropriate type.</exception>
-        private int ParseValueShortOption(ParseInformation parseInformation, OptionProperty optionProperty, string argBody, string scd)
+        private int ParseValueShortOption(ParseInformation parseInformation, StoredProperty<OptionAttribute> optionProperty, string argBody, string scd)
         {
             if (!this.NonSeparatedShortNamedOptionArgumentEnabled && argBody.Length > 1)
             {
@@ -435,7 +429,7 @@ namespace CommandLineArgumentParser
         /// </summary>
         /// <exception cref="InvalidArgumentFormatException">An option argument is specified not separated with option.</exception>
         /// <exception cref="OptionConvertException">An option argument cannot convert to appropriate type.</exception>
-        private int ParseValueLongOption(ParseInformation parseInformation, OptionProperty optionProperty, string argBody, string scd)
+        private int ParseValueLongOption(ParseInformation parseInformation, StoredProperty<OptionAttribute> optionProperty, string argBody, string scd)
         {
             string optionArg = null;
             int ret = 0;
@@ -539,13 +533,13 @@ namespace CommandLineArgumentParser
             }
         }
 
-        private bool IsSubCommand(string arg, ParseInformation parseInformation, out SubCommandProperty subCommandProperty)
+        private bool IsSubCommand(string arg, ParseInformation parseInformation, out StoredProperty<SubCommandAttribute> subCommandProperty)
         {
             subCommandProperty = parseInformation.SubCommandProperties.FirstOrDefault(p => p.Attribute.SubCommand == arg);
             return subCommandProperty != null;
         }
 
-        private void ParseOperand(ParseInformation parseInformation, string arg, OperandProperty operandProperty)
+        private void ParseOperand(ParseInformation parseInformation, string arg, StoredProperty<OperandAttribute> operandProperty)
         {
             TypeConverter converter;
             if (operandProperty.Attribute.ConverterType == null)
@@ -569,7 +563,7 @@ namespace CommandLineArgumentParser
             }
         }
 
-        private void ParseRestOperand(ParseInformation parseInformation, string arg, OperandProperty operandProperty)
+        private void ParseRestOperand(ParseInformation parseInformation, string arg, StoredProperty<OperandAttribute> operandProperty)
         {
             if (operandProperty.Property.PropertyType.IsAssignableFrom(parseInformation.RestAll.GetType()))
             {
@@ -587,29 +581,18 @@ namespace CommandLineArgumentParser
         #endregion
 
         #region class
-        private class OptionProperty
+        private class StoredProperty<TAttribute>
+            where TAttribute : Attribute
         {
-            public OptionAttribute Attribute { get; set; }
-            public PropertyInfo Property { get; set; }
-        }
-
-        private class OperandProperty
-        {
-            public OperandAttribute Attribute { get; set; }
-            public PropertyInfo Property { get; set; }
-        }
-
-        private class SubCommandProperty
-        {
-            public SubCommandAttribute Attribute { get; set; }
+            public TAttribute Attribute { get; set; }
             public PropertyInfo Property { get; set; }
         }
 
         private class ParseInformation
         {
-            public List<OptionProperty> OptionProperties { get; set; }
-            public List<OperandProperty> OperandProperties { get; set; }
-            public List<SubCommandProperty> SubCommandProperties { get; set; }
+            public List<StoredProperty<OptionAttribute>> OptionProperties { get; set; }
+            public List<StoredProperty<OperandAttribute>> OperandProperties { get; set; }
+            public List<StoredProperty<SubCommandAttribute>> SubCommandProperties { get; set; }
 
             public List<string> RestAll { get; set; }
             public object Stored { get; set; }
