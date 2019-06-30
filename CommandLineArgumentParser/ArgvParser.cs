@@ -473,34 +473,6 @@ namespace CommandLineArgumentParser
             }
         }
 
-        private void ParseOperand(ParseInformation parseInformation, string arg, int operandIndex)
-        {
-            var operandProperty = parseInformation.OperandProperties
-                .FirstOrDefault(o => o.Attribute.Index == operandIndex);
-
-            if (operandProperty != null)
-            {
-                this.ParseOperand(parseInformation, arg, operandProperty);
-            }
-            else
-            {
-                operandProperty = parseInformation.OperandProperties
-                                .FirstOrDefault(o => o.Attribute.Index == OperandAttribute.RestAll);
-
-                if (operandProperty != null)
-                {
-                    this.ParseRestOperand(parseInformation, arg, operandProperty);
-                }
-                else
-                {
-                    throw new TooManyArgumentOperandException("Too many operands are specified.")
-                    {
-                        Operand = arg
-                    };
-                }
-            }
-        }
-
         private bool TryParseSubCommand(ParseInformation parseInformation, IEnumerable<string> argv)
         {
             if (!argv.Any())
@@ -528,6 +500,34 @@ namespace CommandLineArgumentParser
         {
             subCommandProperty = parseInformation.SubCommandProperties.FirstOrDefault(p => p.Attribute.SubCommand == arg);
             return subCommandProperty != null;
+        }
+
+        private void ParseOperand(ParseInformation parseInformation, string arg, int operandIndex)
+        {
+            var operandProperty = parseInformation.OperandProperties
+                .FirstOrDefault(o => o.Attribute.Index == operandIndex);
+
+            if (operandProperty != null)
+            {
+                this.ParseOperand(parseInformation, arg, operandProperty);
+            }
+            else
+            {
+                operandProperty = parseInformation.OperandProperties
+                                .FirstOrDefault(o => o.Attribute.Index == OperandAttribute.RestAll);
+
+                if (operandProperty != null)
+                {
+                    this.ParseRestOperand(parseInformation, arg, operandProperty);
+                }
+                else
+                {
+                    throw new TooManyArgumentOperandException("Too many operands are specified.")
+                    {
+                        Operand = arg
+                    };
+                }
+            }
         }
 
         private void ParseOperand(ParseInformation parseInformation, string arg, StoredProperty<OperandAttribute> operandProperty)
