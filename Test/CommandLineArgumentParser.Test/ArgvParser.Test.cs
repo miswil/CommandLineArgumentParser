@@ -464,6 +464,30 @@ namespace CommandLineArgumentParser.Test
         }
 
         [Fact]
+        public void TestParseSubCommandWithNoArg()
+        {
+            var parser = new ArgvParser
+            {
+                IntermixedOerandEnabled = true,
+                LongNamedOptionArgumentAssignCharacter = null,
+                LongNamedOptionEnabled = true,
+                OperandDelimiter = new[] { "--" },
+                ShortNamedOptionPrefix = new[] { "-" },
+                LongNamedOptionPrefix = new[] { "--" },
+                SubCommandEnabled = true,
+            };
+            var input = parser.Parse<Input4>(new[] { "-s", "str", "-i", "10", "-d", "10.0", "-e", "One", "sub" });
+            Assert.Equal("str", input.StringOption);
+            Assert.Equal(10, input.IntegerOption);
+            Assert.Equal(10.0, input.DoubleOption);
+            Assert.Equal(Enumerable.One, input.EnumerableOption);
+            Assert.Equal(default, input.SubCommand.StringOption);
+            Assert.Equal(default, input.SubCommand.IntegerOption);
+            Assert.Equal(default, input.SubCommand.DoubleOption);
+            Assert.Equal(default, input.SubCommand.EnumerableOption);
+        }
+
+        [Fact]
         public void TestParseSubCommandAfterOperand()
         {
             var parser = new ArgvParser
@@ -679,7 +703,7 @@ namespace CommandLineArgumentParser.Test
                 LongNamedOptionPrefix = new[] { "--" },
             };
 
-            var input = parser.Parse<Input>(new[] { "--", "-b", "true", "11", "11.0", "Two", "-i", "10" });
+            var input = parser.Parse<Input>(new[] { "--", "-b", "true", "11", "11.0", "Two", "--", "-i", "10" });
             Assert.False(input.BooleanOption);
             Assert.Equal("-b", input.StringOperand);
             Assert.Equal(0, input.IntegerOption);
@@ -689,7 +713,61 @@ namespace CommandLineArgumentParser.Test
             Assert.Equal(11.0, input.DoubleOperand);
             Assert.Equal(Enumerable.Zero, input.EnumerableOption);
             Assert.Equal(Enumerable.Two, input.EnumerableOperand);
-            Assert.Equal(new[] { "-i", "10" }, input.RestAll);
+            Assert.Equal(new[] { "--", "-i", "10" }, input.RestAll);
+        }
+
+        [Fact]
+        public void TestNoArgument()
+        {
+            var parser = new ArgvParser
+            {
+                IntermixedOerandEnabled = true,
+                LongNamedOptionArgumentAssignCharacter = null,
+                LongNamedOptionEnabled = true,
+                OperandDelimiter = new[] { "--" },
+                ShortNamedOptionPrefix = new[] { "-" },
+                LongNamedOptionPrefix = new[] { "--" },
+            };
+            var input = parser.Parse<Input>(new string[] {  });
+            Assert.False(input.BooleanOption);
+            Assert.False(input.BooleanOperand);
+            Assert.Equal(default, input.StringOperand);
+            Assert.Equal(default, input.IntegerOption);
+            Assert.Equal(default, input.IntegerOperand);
+            Assert.Equal(default, input.DoubleOption);
+            Assert.Equal(default, input.DoubleOperand);
+            Assert.Equal(default, input.EnumerableOption);
+            Assert.Equal(default, input.EnumerableOperand);
+        }
+
+        [Fact]
+        public void TestInvalidStore()
+        {
+            var parser = new ArgvParser
+            {
+                IntermixedOerandEnabled = true,
+                LongNamedOptionArgumentAssignCharacter = null,
+                LongNamedOptionEnabled = true,
+                OperandDelimiter = new[] { "--" },
+                ShortNamedOptionPrefix = new[] { "-" },
+                LongNamedOptionPrefix = new[] { "--" },
+            };
+            Assert.Throws<ArgumentNullException>(() => parser.Parse(null, new string[] { }));
+        }
+
+        [Fact]
+        public void TestInvalidArgv()
+        {
+            var parser = new ArgvParser
+            {
+                IntermixedOerandEnabled = true,
+                LongNamedOptionArgumentAssignCharacter = null,
+                LongNamedOptionEnabled = true,
+                OperandDelimiter = new[] { "--" },
+                ShortNamedOptionPrefix = new[] { "-" },
+                LongNamedOptionPrefix = new[] { "--" },
+            };
+            Assert.Throws<ArgumentNullException>(() => parser.Parse(new Input(), null));
         }
 
         [Fact]

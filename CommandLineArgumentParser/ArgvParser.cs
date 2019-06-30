@@ -110,7 +110,7 @@ namespace CommandLineArgumentParser
         {
             var parseInformation = new ParseInformation();
             parseInformation.Stored = stored ?? throw new ArgumentNullException(nameof(stored));
-            var argl = argv?.ToList() ?? throw new ArgumentNullException(nameof(argv));
+            var argl = argv?.Select(arg => arg ?? throw new ArgumentException("an element of aragv must not be null.")).ToList() ?? throw new ArgumentNullException(nameof(argv));
             parseInformation.OptionProperties = this.GetProperties<OptionAttribute>(stored);
             parseInformation.OperandProperties = this.GetProperties<OperandAttribute>(stored);
             parseInformation.SubCommandProperties = this.GetProperties<SubCommandAttribute>(stored);
@@ -121,37 +121,25 @@ namespace CommandLineArgumentParser
             bool isRestOperand = false;
             for (int index = 0; index < argl.Count;)
             {
-                if (this.OperandDelimiter?.Contains(argl[index]) ?? false)
+                if (!isRestOperand && (this.OperandDelimiter?.Contains(argl[index]) ?? false))
                 {
                     isRestOperand = true;
                     ++index;
-                    continue;
                 }
-                int readCount = 0;
-                if (!isRestOperand)
+                else if (!isRestOperand && this.TryParseOption(parseInformation, argl[index], index + 1 < argl.Count ? argl[index + 1] : null, out int readCount))
                 {
-                    readCount = this.ParseOption(parseInformation, argl.Skip(index));
                     index += readCount;
                 }
-                if (readCount == 0)
+                else if (this.SubCommandEnabled && this.TryParseSubCommand(parseInformation, argl[index], argl.Skip(index + 1)))
+                {
+                    break;
+                }
+                else
                 {
                     isRestOperand = isRestOperand || !this.IntermixedOerandEnabled;
-                    do
-                    {
-                        if (this.SubCommandEnabled)
-                        {
-                            readCount = this.ParseSubCommand(parseInformation, argl.Skip(index));
-                            index += readCount;
-                            if (readCount > 0)
-                            {
-                                break;
-                            }
-                        }
-
-                        this.ParseOperand(parseInformation, argl[index], operandIndex);
-                        ++operandIndex;
-                        ++index;
-                    } while (isRestOperand && index < argl.Count);
+                    this.ParseOperand(parseInformation, argl[index], operandIndex);
+                    ++operandIndex;
+                    ++index;
                 }
             }
         }
@@ -172,40 +160,16 @@ namespace CommandLineArgumentParser
                 .ToList();
         }
 
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="argv"></param>
-        /// <returns>the number of parsed arguments</returns>
-        private int ParseOption(ParseInformation parseInformation, IEnumerable<string> argv)
+        private bool TryParseOption(ParseInformation parseInformation, string fst, string scd, out int readCount)
         {
-            if (!argv.Any())
-            {
-                return 0;
-            }
-            string fst = argv.First();
-            if (fst == null)
-            {
-                throw new ArgumentException("an element of aragv must not be null.");
-            }
-            string scd = argv.Skip(1).Any()
-                ? (argv.Skip(1).First()
-                    ?? throw new ArgumentException("an element of aragv must not be null."))
-                : null;
-
-            return this.ParseOption(parseInformation, fst, scd);
-        }
-
-        private int ParseOption(ParseInformation parseInformation, string fst, string scd)
-        {
-            var isShortOption = this.IsShoftOption(fst, out string shortOptionBody);
-            var isLongOption = this.IsLongOption(fst, out string longOptionBody) && this.LongNamedOptionEnabled;
+            var isShortOption = this.IsShoftOptionFormat(fst, out string shortOptionBody);
+            var isLongOption = this.IsLongOptionFormat(fst, out string longOptionBody) && this.LongNamedOptionEnabled;
 
             if (isShortOption)
             {
                 try
                 {
-                    return this.ParseShortOption(parseInformation, shortOptionBody, scd);
+                    return this.TryParseShortOption(parseInformation, shortOptionBody, scd, out readCount);
                 }
                 catch
                 {
@@ -217,12 +181,13 @@ namespace CommandLineArgumentParser
             }
             if (isLongOption)
             {
-                return this.ParseLongOption(parseInformation, longOptionBody, scd);
+                return this.TryParseLongOption(parseInformation, longOptionBody, scd, out readCount);
             }
-            return 0;
+            readCount = 0;
+            return false;
         }
 
-        private bool IsShoftOption(string arg, out string argBody)
+        private bool IsShoftOptionFormat(string arg, out string argBody)
         {
             if (this.ShortNamedOptionPrefix == null)
             {
@@ -237,7 +202,7 @@ namespace CommandLineArgumentParser
             return !string.IsNullOrEmpty(argBody);
         }
 
-        private int ParseShortOption(ParseInformation parseInformation, string argBody, string scd)
+        private bool TryParseShortOption(ParseInformation parseInformation, string argBody, string scd, out int readCount)
         {
             var optionProperty = parseInformation.OptionProperties
                 .FirstOrDefault(o => o.Attribute.ShortPrefix == argBody[0]);
@@ -247,11 +212,13 @@ namespace CommandLineArgumentParser
                 if (optionArgType == typeof(bool))
                 {
                     this.ParseBooleanShortOption(parseInformation, argBody);
-                    return 1;
+                    readCount = 1;
+                    return true;
                 }
                 else
                 {
-                    return this.ParseValueShortOption(parseInformation, optionProperty, argBody, scd);
+                    this.TryParseValueShortOption(parseInformation, optionProperty, argBody, scd, out readCount);
+                    return true;
                 }
             }
             else
@@ -299,7 +266,7 @@ namespace CommandLineArgumentParser
                         Option = checkedOption.ArgChar.ToString(),
                     };
                 }
-                if (checkedOption.OptionProperty?.Property.PropertyType != typeof(bool))
+                if (checkedOption.OptionProperty.Property.PropertyType != typeof(bool))
                 {
                     throw new OptionConvertException($"Failed to convert the option to boolean.")
                     {
@@ -319,7 +286,7 @@ namespace CommandLineArgumentParser
         /// </summary>
         /// <exception cref="InvalidArgumentFormatException">An option argument is specified not separated with option.</exception>
         /// <exception cref="OptionConvertException">An option argument cannot convert to appropriate type.</exception>
-        private int ParseValueShortOption(ParseInformation parseInformation, StoredProperty<OptionAttribute> optionProperty, string argBody, string scd)
+        private void TryParseValueShortOption(ParseInformation parseInformation, StoredProperty<OptionAttribute> optionProperty, string argBody, string scd, out int readCount)
         {
             if (!this.NonSeparatedShortNamedOptionArgumentEnabled && argBody.Length > 1)
             {
@@ -330,18 +297,17 @@ namespace CommandLineArgumentParser
             }
 
             string optionArg;
-            int ret;
             if (this.NonSeparatedShortNamedOptionArgumentEnabled && argBody.Length > 1)
             {
                 optionArg = argBody.Substring(1);
-                ret = 1;
+                readCount = 1;
             }
             else
             {
                 if (!string.IsNullOrEmpty(scd))
                 {
                     optionArg = scd;
-                    ret = 2;
+                    readCount = 2;
                 }
                 else
                 {
@@ -373,10 +339,9 @@ namespace CommandLineArgumentParser
                     Argument = optionArg,
                 };
             }
-            return ret;
         }
 
-        private bool IsLongOption(string arg, out string argBody)
+        private bool IsLongOptionFormat(string arg, out string argBody)
         {
             if (this.LongNamedOptionPrefix == null)
             {
@@ -391,7 +356,7 @@ namespace CommandLineArgumentParser
             return !string.IsNullOrEmpty(argBody);
         }
 
-        private int ParseLongOption(ParseInformation parseInformation, string argBody, string scd)
+        private bool TryParseLongOption(ParseInformation parseInformation, string argBody, string scd, out int readCount)
         {
             var optionProperty = parseInformation.OptionProperties
                 .FirstOrDefault(o =>
@@ -408,11 +373,13 @@ namespace CommandLineArgumentParser
                 if (optionArgType == typeof(bool) && optionProperty.Attribute.LongPrefix == argBody)
                 {
                     optionProperty.Property.SetValue(parseInformation.Stored, true);
-                    return 1;
+                    readCount = 1;
+                    return true;
                 }
                 else
                 {
-                    return this.ParseValueLongOption(parseInformation, optionProperty, argBody, scd);
+                    this.ParseValueLongOption(parseInformation, optionProperty, argBody, scd, out readCount);
+                    return true;
                 }
             }
             else
@@ -429,17 +396,17 @@ namespace CommandLineArgumentParser
         /// </summary>
         /// <exception cref="InvalidArgumentFormatException">An option argument is specified not separated with option.</exception>
         /// <exception cref="OptionConvertException">An option argument cannot convert to appropriate type.</exception>
-        private int ParseValueLongOption(ParseInformation parseInformation, StoredProperty<OptionAttribute> optionProperty, string argBody, string scd)
+        private void ParseValueLongOption(ParseInformation parseInformation, StoredProperty<OptionAttribute> optionProperty, string argBody, string scd, out int readCount)
         {
             string optionArg = null;
-            int ret = 0;
+            readCount = 0;
             if (this.LongNamedOptionArgumentAssignCharacter != null)
             {
                 int index = this.LongNamedOptionArgumentAssignCharacter.Select(c => argBody.IndexOf(c)).Where(i => i != -1).FirstOrDefault();
                 if (index > 0)
                 {
                     optionArg = argBody.Substring(index + 1);
-                    ret = 1;
+                    readCount = 1;
                 }
             }
             if (optionArg == null)
@@ -447,7 +414,7 @@ namespace CommandLineArgumentParser
                 if (!string.IsNullOrEmpty(scd))
                 {
                     optionArg = scd;
-                    ret = 2;
+                    readCount = 2;
                 }
                 else
                 {
@@ -479,7 +446,27 @@ namespace CommandLineArgumentParser
                     Argument = optionArg,
                 };
             }
-            return ret;
+        }
+
+        private bool TryParseSubCommand(ParseInformation parseInformation, string subCommand, IEnumerable<string> argv)
+        {
+            if (this.IsSubCommand(subCommand, parseInformation, out var subCommandProperty))
+            {
+                var subCommandArgStore = Activator.CreateInstance(subCommandProperty.Attribute.SubCommandType ?? subCommandProperty.Property.PropertyType);
+                this.Parse(subCommandArgStore, argv);
+                subCommandProperty.Property.SetValue(parseInformation.Stored, subCommandArgStore);
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        private bool IsSubCommand(string arg, ParseInformation parseInformation, out StoredProperty<SubCommandAttribute> subCommandProperty)
+        {
+            subCommandProperty = parseInformation.SubCommandProperties.FirstOrDefault(p => p.Attribute.SubCommand == arg);
+            return subCommandProperty != null;
         }
 
         private void ParseOperand(ParseInformation parseInformation, string arg, int operandIndex)
@@ -508,35 +495,6 @@ namespace CommandLineArgumentParser
                     };
                 }
             }
-        }
-
-        private int ParseSubCommand(ParseInformation parseInformation, IEnumerable<string> argv)
-        {
-            if (!argv.Any())
-            {
-                return 0;
-            }
-            if (argv.First() == null)
-            {
-                throw new ArgumentException("an element of aragv must not be null.");
-            }
-            if (this.IsSubCommand(argv.First(), parseInformation, out var subCommandProperty))
-            {
-                var subCommandArgStore =  Activator.CreateInstance(subCommandProperty.Attribute.SubCommandType ?? subCommandProperty.Property.PropertyType);
-                this.Parse(subCommandArgStore, argv.Skip(1));
-                subCommandProperty.Property.SetValue(parseInformation.Stored, subCommandArgStore);
-                return argv.Count();
-            }
-            else
-            {
-                return 0;
-            }
-        }
-
-        private bool IsSubCommand(string arg, ParseInformation parseInformation, out StoredProperty<SubCommandAttribute> subCommandProperty)
-        {
-            subCommandProperty = parseInformation.SubCommandProperties.FirstOrDefault(p => p.Attribute.SubCommand == arg);
-            return subCommandProperty != null;
         }
 
         private void ParseOperand(ParseInformation parseInformation, string arg, StoredProperty<OperandAttribute> operandProperty)
