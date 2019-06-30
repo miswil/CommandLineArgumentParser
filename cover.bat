@@ -15,6 +15,10 @@ rem project code
 set SEARCH_DIR=CommandLineArgumentParser\bin\Debug\netstandard2.0\
 set FILTERS="+[CommandLineArgumentParser]* -[*]*Exception -[*]*Attribute -[*.Test]*"
 
+rem clean
+del %OUTPUT%
+rd /S /Q %OUTPUT_DIR%
+
 rem coverage
 %OPEN_COVER%					^
 	-target:%TARGET%			^
