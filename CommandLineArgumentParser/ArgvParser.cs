@@ -21,6 +21,7 @@ namespace CommandLineArgumentParser
                 LongNamedOptionPrefix = new[] { "--" },
                 OperandDelimiter = null,
                 LongNamedOptionArgumentAssignCharacter = null,
+                SubCommandEnabled = false,
             });
 
         private static ArgvParser _GNU;
@@ -35,6 +36,7 @@ namespace CommandLineArgumentParser
                 LongNamedOptionPrefix = new[] { "--" },
                 OperandDelimiter = new[] { "--" },
                 LongNamedOptionArgumentAssignCharacter = new[] { '=' },
+                SubCommandEnabled = false,
             });
 
         private static ArgvParser _windows;
@@ -49,6 +51,7 @@ namespace CommandLineArgumentParser
                 LongNamedOptionPrefix = new[] { "/" },
                 LongNamedOptionArgumentAssignCharacter = null,
                 OperandDelimiter = null,
+                SubCommandEnabled = false,
             });
         #endregion Static
         
@@ -74,6 +77,11 @@ namespace CommandLineArgumentParser
         /// true: multiple options can be passed in a single token if the option do not take the argument.
         /// </summary>
         public bool MultipleShortNamedOptionWithOneTokenEnabled { get; set; }
+
+        /// <summary>
+        /// true: sub command and trailing arguments for sub command is parsed.
+        /// </summary>
+        public bool SubCommandEnabled { get; set; }
 
         /// <summary>
         /// The argument is interpreted as short named option after this prefix.
@@ -117,6 +125,10 @@ namespace CommandLineArgumentParser
                     .Any(a => a.GetType() == typeof(OperandAttribute)))
                 .Select(p => new OperandProperty { Attribute = (OperandAttribute)p.GetCustomAttributes().First(a => a is OperandAttribute), Property = p })
                 .ToList();
+            parseInformation.SubCommandProperties = stored.GetType()
+                .GetProperties()
+                .SelectMany(p => p.GetCustomAttributes(typeof(SubCommandAttribute)).Select(a => new SubCommandProperty { Attribute = (SubCommandAttribute)a, Property = p }))
+                .ToList();
             parseInformation.RestAll = new List<string>();
             // TODO implement fluent api
 
@@ -141,6 +153,16 @@ namespace CommandLineArgumentParser
                     isRestOperand = isRestOperand || !this.IntermixedOerandEnabled;
                     do
                     {
+                        if (this.SubCommandEnabled)
+                        {
+                            readCount = this.ParseSubCommand(parseInformation, argl.Skip(index));
+                            index += readCount;
+                            if (readCount > 0)
+                            {
+                                break;
+                            }
+                        }
+
                         this.ParseOperand(parseInformation, argl[index], operandIndex);
                         ++operandIndex;
                         ++index;
@@ -494,6 +516,35 @@ namespace CommandLineArgumentParser
             }
         }
 
+        private int ParseSubCommand(ParseInformation parseInformation, IEnumerable<string> argv)
+        {
+            if (!argv.Any())
+            {
+                return 0;
+            }
+            if (argv.First() == null)
+            {
+                throw new ArgumentException("an element of aragv must not be null.");
+            }
+            if (this.IsSubCommand(argv.First(), parseInformation, out var subCommandProperty))
+            {
+                var subCommandArgStore =  Activator.CreateInstance(subCommandProperty.Attribute.SubCommandType ?? subCommandProperty.Property.PropertyType);
+                this.Parse(subCommandArgStore, argv.Skip(1));
+                subCommandProperty.Property.SetValue(parseInformation.Stored, subCommandArgStore);
+                return argv.Count();
+            }
+            else
+            {
+                return 0;
+            }
+        }
+
+        private bool IsSubCommand(string arg, ParseInformation parseInformation, out SubCommandProperty subCommandProperty)
+        {
+            subCommandProperty = parseInformation.SubCommandProperties.FirstOrDefault(p => p.Attribute.SubCommand == arg);
+            return subCommandProperty != null;
+        }
+
         private void ParseOperand(ParseInformation parseInformation, string arg, OperandProperty operandProperty)
         {
             TypeConverter converter;
@@ -533,7 +584,9 @@ namespace CommandLineArgumentParser
                 };
             }
         }
+        #endregion
 
+        #region class
         private class OptionProperty
         {
             public OptionAttribute Attribute { get; set; }
@@ -545,13 +598,19 @@ namespace CommandLineArgumentParser
             public OperandAttribute Attribute { get; set; }
             public PropertyInfo Property { get; set; }
         }
-        #endregion
 
-        #region class
+        private class SubCommandProperty
+        {
+            public SubCommandAttribute Attribute { get; set; }
+            public PropertyInfo Property { get; set; }
+        }
+
         private class ParseInformation
         {
             public List<OptionProperty> OptionProperties { get; set; }
             public List<OperandProperty> OperandProperties { get; set; }
+            public List<SubCommandProperty> SubCommandProperties { get; set; }
+
             public List<string> RestAll { get; set; }
             public object Stored { get; set; }
         }

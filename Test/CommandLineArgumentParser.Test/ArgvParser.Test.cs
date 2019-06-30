@@ -204,7 +204,7 @@ namespace CommandLineArgumentParser.Test
             Assert.Throws<UnknownOptionSpecifiedException>(() => parser.Parse<Input>(new[] { "-z" }));
             Assert.Throws<OptionConvertException>(() => parser.Parse<Input>(new[] { "-i", "10.0" }));
             Assert.Throws<OptionConvertException>(() => parser.Parse<Input>(new[] { "-d", "hoge" }));
-            Assert.Throws<OptionConvertException>(() => parser.Parse<Input>(new[] { "-e", "Three" }));
+            Assert.Throws<OptionConvertException>(() => parser.Parse<Input>(new[] { "-e", "Hoge" }));
             Assert.Throws<InvalidArgumentFormatException>(() => parser.Parse<Input>(new[] { "-i" }));
             Assert.Throws<InvalidArgumentFormatException>(() => parser.Parse<Input>(new[] { "-d" }));
             Assert.Throws<InvalidArgumentFormatException>(() => parser.Parse<Input>(new[] { "-e" }));
@@ -393,7 +393,7 @@ namespace CommandLineArgumentParser.Test
             Assert.Throws<UnknownOptionSpecifiedException>(() => parser.Parse<Input>(new[] { "--hoge" }));
             Assert.Throws<OptionConvertException>(() => parser.Parse<Input>(new[] { "--integer", "10.0" }));
             Assert.Throws<OptionConvertException>(() => parser.Parse<Input>(new[] { "--double", "hoge" }));
-            Assert.Throws<OptionConvertException>(() => parser.Parse<Input>(new[] { "--enum", "Three" }));
+            Assert.Throws<OptionConvertException>(() => parser.Parse<Input>(new[] { "--enum", "Hoge" }));
             Assert.Throws<InvalidArgumentFormatException>(() => parser.Parse<Input>(new[] { "--integer" }));
             Assert.Throws<InvalidArgumentFormatException>(() => parser.Parse<Input>(new[] { "--double" }));
             Assert.Throws<InvalidArgumentFormatException>(() => parser.Parse<Input>(new[] { "--enum" }));
@@ -437,6 +437,131 @@ namespace CommandLineArgumentParser.Test
             };
             Assert.Throws<ArgumentException>(() => parser.Parse<Input>(new string[] { null }));
             Assert.Throws<ArgumentException>(() => parser.Parse<Input>(new string[] { "-i", null }));
+        }
+
+        [Fact]
+        public void TestParseSubCommand()
+        {
+            var parser = new ArgvParser
+            {
+                IntermixedOerandEnabled = true,
+                LongNamedOptionArgumentAssignCharacter = null,
+                LongNamedOptionEnabled = true,
+                OperandDelimiter = new[] { "--" },
+                ShortNamedOptionPrefix = new[] { "-" },
+                LongNamedOptionPrefix = new[] { "--" },
+                SubCommandEnabled = true,
+            };
+            var input = parser.Parse<Input4>(new[] { "-s", "str", "-i", "10", "-d", "10.0", "-e", "One", "sub", "-s", "str2", "-i", "11", "-d", "11.0", "-e", "Two" });
+            Assert.Equal("str", input.StringOption);
+            Assert.Equal(10, input.IntegerOption);
+            Assert.Equal(10.0, input.DoubleOption);
+            Assert.Equal(Enumerable.One, input.EnumerableOption);
+            Assert.Equal("str2", input.SubCommand.StringOption);
+            Assert.Equal(11, input.SubCommand.IntegerOption);
+            Assert.Equal(11.0, input.SubCommand.DoubleOption);
+            Assert.Equal(Enumerable.Two, input.SubCommand.EnumerableOption);
+        }
+
+        [Fact]
+        public void TestParseSubCommandAfterOperand()
+        {
+            var parser = new ArgvParser
+            {
+                IntermixedOerandEnabled = true,
+                LongNamedOptionArgumentAssignCharacter = null,
+                LongNamedOptionEnabled = true,
+                OperandDelimiter = new[] { "--" },
+                ShortNamedOptionPrefix = new[] { "-" },
+                LongNamedOptionPrefix = new[] { "--" },
+                SubCommandEnabled = true,
+            };
+            var input = parser.Parse<Input4>(new[] { "-s", "str", "-i", "10", "-d", "10.0", "-e", "One", "str2", "true", "11", "11.0", "Two", "Rest", "of", "main", "operand", "sub", "-s", "str3", "-i", "12", "-d", "12.0", "-e", "Three", "str4", "true", "13", "13.0", "Four", "Rest", "of", "Subcommand", "operand"});
+            Assert.Equal("str", input.StringOption);
+            Assert.Equal(10, input.IntegerOption);
+            Assert.Equal(10.0, input.DoubleOption);
+            Assert.Equal(Enumerable.One, input.EnumerableOption);
+            Assert.Equal("str2", input.StringOperand);
+            Assert.True(input.BooleanOperand);
+            Assert.Equal(11, input.IntegerOperand);
+            Assert.Equal(11.0, input.DoubleOperand);
+            Assert.Equal(Enumerable.Two, input.EnumerableOperand);
+            Assert.Equal(new[] { "Rest", "of", "main", "operand" }, input.RestAll);
+            Assert.Equal("str3", input.SubCommand.StringOption);
+            Assert.Equal(12, input.SubCommand.IntegerOption);
+            Assert.Equal(12.0, input.SubCommand.DoubleOption);
+            Assert.Equal(Enumerable.Three, input.SubCommand.EnumerableOption);
+            Assert.Equal("str4", input.SubCommand.StringOperand);
+            Assert.True(input.SubCommand.BooleanOperand);
+            Assert.Equal(13, input.SubCommand.IntegerOperand);
+            Assert.Equal(13.0, input.SubCommand.DoubleOperand);
+            Assert.Equal(Enumerable.Four, input.SubCommand.EnumerableOperand);
+            Assert.Equal(new[] { "Rest", "of", "Subcommand", "operand" }, input.SubCommand.RestAll);
+        }
+
+        [Fact]
+        public void TestParseSubCommandAfterOperandDelimeter()
+        {
+            var parser = new ArgvParser
+            {
+                IntermixedOerandEnabled = true,
+                LongNamedOptionArgumentAssignCharacter = null,
+                LongNamedOptionEnabled = true,
+                OperandDelimiter = new[] { "--" },
+                ShortNamedOptionPrefix = new[] { "-" },
+                LongNamedOptionPrefix = new[] { "--" },
+                SubCommandEnabled = true,
+            };
+            var input = parser.Parse<Input4>(new[] { "-s", "str", "--", "-i","true", "10", "10.0", "One", "Rest", "of", "main", "operand", "sub", "-s", "str2", "--", "-i", "true", "12", "12.0", "Three", "Rest", "of", "Subcommand", "operand" });
+            Assert.Equal("str", input.StringOption);
+            Assert.Equal(0, input.IntegerOption);
+            Assert.Equal(0.0, input.DoubleOption);
+            Assert.Equal(Enumerable.Zero, input.EnumerableOption);
+            Assert.Equal("-i", input.StringOperand);
+            Assert.True(input.BooleanOperand);
+            Assert.Equal(10, input.IntegerOperand);
+            Assert.Equal(10.0, input.DoubleOperand);
+            Assert.Equal(Enumerable.One, input.EnumerableOperand);
+            Assert.Equal(new[] { "Rest", "of", "main", "operand" }, input.RestAll);
+            Assert.Equal("str2", input.SubCommand.StringOption);
+            Assert.Equal(0, input.SubCommand.IntegerOption);
+            Assert.Equal(0.0, input.SubCommand.DoubleOption);
+            Assert.Equal(Enumerable.Zero, input.SubCommand.EnumerableOption);
+            Assert.Equal("-i", input.SubCommand.StringOperand);
+            Assert.True(input.SubCommand.BooleanOperand);
+            Assert.Equal(12, input.SubCommand.IntegerOperand);
+            Assert.Equal(12.0, input.SubCommand.DoubleOperand);
+            Assert.Equal(Enumerable.Three, input.SubCommand.EnumerableOperand);
+            Assert.Equal(new[] { "Rest", "of", "Subcommand", "operand" }, input.SubCommand.RestAll);
+        }
+
+        [Fact]
+        public void TestParseSubCommandVirtual()
+        {
+            var parser = new ArgvParser
+            {
+                IntermixedOerandEnabled = true,
+                LongNamedOptionArgumentAssignCharacter = null,
+                LongNamedOptionEnabled = true,
+                OperandDelimiter = new[] { "--" },
+                ShortNamedOptionPrefix = new[] { "-" },
+                LongNamedOptionPrefix = new[] { "--" },
+                SubCommandEnabled = true,
+            };
+            var input = parser.Parse<Input5>(new[] { "-s", "str", "-i", "10", "-d", "10.0", "-e", "One", "Rest", "of", "main", "operand", "sub1", "-i", "10" });
+            Assert.Equal("str", input.StringOption);
+            Assert.Equal(10, input.IntegerOption);
+            Assert.Equal(10.0, input.DoubleOption);
+            Assert.Equal(Enumerable.One, input.EnumerableOption);
+            Assert.Equal(new[] { "Rest", "of", "main", "operand" }, input.RestAll);
+            Assert.Equal(10, input.SubCommand.Do());
+            input = parser.Parse<Input5>(new[] { "-s", "str", "-i", "10", "-d", "10.0", "-e", "One", "Rest", "of", "main", "operand", "sub2", "-d", "10.0" });
+            Assert.Equal("str", input.StringOption);
+            Assert.Equal(10, input.IntegerOption);
+            Assert.Equal(10.0, input.DoubleOption);
+            Assert.Equal(Enumerable.One, input.EnumerableOption);
+            Assert.Equal(new[] { "Rest", "of", "main", "operand" }, input.RestAll);
+            Assert.Equal(10.0, input.SubCommand.Do());
         }
 
         [Fact]
@@ -566,13 +691,12 @@ namespace CommandLineArgumentParser.Test
             Assert.Equal(Enumerable.Two, input.EnumerableOperand);
             Assert.Equal(new[] { "-i", "10" }, input.RestAll);
         }
-
     }
 
 
     public enum Enumerable
     {
-        Zero, One, Two
+        Zero, One, Two, Three, Four
     }
 
     public class Input
@@ -660,6 +784,59 @@ namespace CommandLineArgumentParser.Test
         public Enumerable EnumerableOperand { get; set; }
         [Operand]
         public string RestAll { get; set; }
+    }
+
+    public class Input5
+    {
+        [Option('s', "string")]
+        public string StringOption { get; set; }
+        [Option('b', "boolean")]
+        public bool BooleanOption { get; set; }
+        [Option('v', "boolean2")]
+        public bool BooleanOption2 { get; set; }
+        [Option('i', "integer")]
+        public int IntegerOption { get; set; }
+        [Option('d', "double")]
+        public double DoubleOption { get; set; }
+        [Option('e', "enum")]
+        public Enumerable EnumerableOption { get; set; }
+        [Operand]
+        public List<string> RestAll { get; set; }
+
+        [SubCommand("sub1", typeof(SubCommand1))]
+        [SubCommand("sub2", typeof(SubCommand2))]
+        public ISubCommand SubCommand { get; set; }
+    }
+
+    public interface ISubCommand
+    {
+        object Do();
+    }
+
+    public class SubCommand1 : ISubCommand
+    {
+        [Option('i')]
+        public int IntegerProperty { get; set; }
+        public object Do()
+        {
+            return IntegerProperty;
+        }
+    }
+
+    public class SubCommand2 : ISubCommand
+    {
+        [Option('d')]
+        public double DoubleProperty { get; set; }
+        public object Do()
+        {
+            return DoubleProperty;
+        }
+    }
+
+    public class Input4 : Input
+    {
+        [SubCommand("sub")]
+        public Input SubCommand { get; set; }
     }
 
     public class StringConverter : TypeConverter
