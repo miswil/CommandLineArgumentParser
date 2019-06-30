@@ -2,6 +2,7 @@
 
 namespace CommandLineArgumentParser
 {
+    [AttributeUsage(AttributeTargets.Property)]
     public class OperandAttribute : ArgumentAttribute
     {
         public const int RestAll = -1;
