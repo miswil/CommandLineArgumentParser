@@ -679,7 +679,7 @@ namespace CommandLineArgumentParser.Test
                 LongNamedOptionPrefix = new[] { "--" },
             };
 
-            var input = parser.Parse<Input>(new[] { "--", "-b", "true", "11", "11.0", "Two", "-i", "10" });
+            var input = parser.Parse<Input>(new[] { "--", "-b", "true", "11", "11.0", "Two", "--", "-i", "10" });
             Assert.False(input.BooleanOption);
             Assert.Equal("-b", input.StringOperand);
             Assert.Equal(0, input.IntegerOption);
@@ -689,7 +689,7 @@ namespace CommandLineArgumentParser.Test
             Assert.Equal(11.0, input.DoubleOperand);
             Assert.Equal(Enumerable.Zero, input.EnumerableOption);
             Assert.Equal(Enumerable.Two, input.EnumerableOperand);
-            Assert.Equal(new[] { "-i", "10" }, input.RestAll);
+            Assert.Equal(new[] { "--", "-i", "10" }, input.RestAll);
         }
 
         [Fact]

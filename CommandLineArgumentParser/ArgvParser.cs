@@ -121,38 +121,35 @@ namespace CommandLineArgumentParser
             bool isRestOperand = false;
             for (int index = 0; index < argl.Count;)
             {
-                if (this.OperandDelimiter?.Contains(argl[index]) ?? false)
+                if (!isRestOperand && (this.OperandDelimiter?.Contains(argl[index]) ?? false))
                 {
                     isRestOperand = true;
                     ++index;
                     continue;
                 }
-                int readCount = 0;
                 if (!isRestOperand)
                 {
-                    readCount = this.ParseOption(parseInformation, argl.Skip(index));
+                    int readCount = this.ParseOption(parseInformation, argl.Skip(index));
                     index += readCount;
-                }
-                if (readCount == 0)
-                {
-                    isRestOperand = isRestOperand || !this.IntermixedOerandEnabled;
-                    do
+                    if (readCount != 0)
                     {
-                        if (this.SubCommandEnabled)
-                        {
-                            readCount = this.ParseSubCommand(parseInformation, argl.Skip(index));
-                            index += readCount;
-                            if (readCount > 0)
-                            {
-                                break;
-                            }
-                        }
-
-                        this.ParseOperand(parseInformation, argl[index], operandIndex);
-                        ++operandIndex;
-                        ++index;
-                    } while (isRestOperand && index < argl.Count);
+                        continue;
+                    }
                 }
+                if (this.SubCommandEnabled)
+                {
+                    int readCount = this.ParseSubCommand(parseInformation, argl.Skip(index));
+                    index += readCount;
+                    if (readCount > 0)
+                    {
+                        continue;
+                    }
+                }
+
+                isRestOperand = isRestOperand || !this.IntermixedOerandEnabled;
+                this.ParseOperand(parseInformation, argl[index], operandIndex);
+                ++operandIndex;
+                ++index;
             }
         }
 
